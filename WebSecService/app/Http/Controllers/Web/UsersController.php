@@ -17,15 +17,29 @@ class UsersController extends Controller {
 
 	use ValidatesRequests;
 
-    public function list(Request $request) {
-        if(!auth()->user()->hasPermissionTo('show_users'))abort(401);
-        $query = User::select('*');
-        $query->when($request->keywords, 
-        fn($q)=> $q->where("name", "like", "%$request->keywords%"));
-        $users = $query->get();
-        return view('users.list', compact('users'));
+    public function list(Request $request)
+{
+    $query = User::query();
+    
+    // Employees only see customers
+    if (auth()->user()->hasRole('Employee')) {
+        $query->whereHas('roles', function($q) {
+            $q->where('name', 'Customer');
+        });
     }
-
+    
+    
+    if ($request->keywords) {
+        $query->where(function($q) use ($request) {
+            $q->where('name', 'like', "%{$request->keywords}%")
+              ->orWhere('email', 'like', "%{$request->keywords}%");
+        });
+    }
+    
+    $users = $query->with('roles')->orderBy('name')->paginate(10);
+    
+    return view('users.list', compact('users'));
+}
 	public function register(Request $request) {
         return view('users.register');
     }
@@ -34,14 +48,14 @@ class UsersController extends Controller {
 
     	try {
     		$this->validate($request, [
-	        'name' => ['required', 'string', 'min:5'],
-	        'email' => ['required', 'email', 'unique:users'],
-	        'password' => ['required', 'confirmed', Password::min(8)->numbers()->letters()->mixedCase()->symbols()],
-	    	]);
+        'name' => ['required', 'string', 'min:5'],
+        'email' => ['required', 'email', 'unique:users'],
+        'password' => ['required', 'confirmed', Password::min(8)->numbers()->letters()->mixedCase()->symbols()],
+    	]);
     	}
-    	catch(\Exception $e) {
+    	catch(\Illuminate\Validation\ValidationException $e) {
 
-    		return redirect()->back()->withInput($request->input())->withErrors('Invalid registration information.');
+    		return redirect()->back()->withInput($request->input())->withErrors($e->errors());
     	}
 
     	
@@ -49,6 +63,8 @@ class UsersController extends Controller {
 	    $user->name = $request->name;
 	    $user->email = $request->email;
 	    $user->password = bcrypt($request->password); //Secure
+        $user->credit = 0; // Start with 0 credit
+        $user->assignRole('Customer');
 	    $user->save();
 
         return redirect('/');
@@ -141,6 +157,8 @@ class UsersController extends Controller {
 
         return redirect(route('profile', ['user'=>$user->id]));
     }
+    
+    
 
     public function delete(Request $request, User $user) {
 

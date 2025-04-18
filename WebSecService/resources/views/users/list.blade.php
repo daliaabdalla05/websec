@@ -26,7 +26,7 @@
       <thead>
         <tr>
           <th scope="col">#</th>
-          <th scope="col">Name</th>
+          <th scope="col">Name y</th>
           <th scope="col">Email</th>
           <th scope="col">Roles</th>
           <th scope="col"></th>
@@ -43,16 +43,27 @@
           @endforeach
         </td>
         <td scope="col">
-          @can('edit_users')
-          <a class="btn btn-primary" href='{{route('users_edit', [$user->id])}}'>Edit</a>
-          @endcan
-          @can('admin_users')
-          <a class="btn btn-primary" href='{{route('edit_password', [$user->id])}}'>Change Password</a>
-          @endcan
-          @can('delete_users')
-          <a class="btn btn-danger" href='{{route('users_delete', [$user->id])}}'>Delete</a>
-          @endcan
-        </td>
+  @foreach($user->roles as $role)
+    <span class="badge bg-primary">{{$role->name}}</span>
+  @endforeach
+</td>
+<td scope="col">
+  @can('edit_users')
+    @if(auth()->user()->hasRole('Admin') || $user->hasRole('customer'))
+      <a class="btn btn-primary" href='{{route("users_edit", [$user->id])}}'>Edit</a>
+    @endif
+  @endcan
+  
+  @can('admin_users')
+    <a class="btn btn-primary" href='{{route("edit_password", [$user->id])}}'>Change Password</a>
+  @endcan
+  
+  @can('delete_users')
+    @if(auth()->user()->hasRole('Admin') || $user->hasRole('customer'))
+      <a class="btn btn-danger" href='{{route("users_delete", [$user->id])}}'>Delete</a>
+    @endif
+  @endcan
+</td>
       </tr>
       @endforeach
     </table>
